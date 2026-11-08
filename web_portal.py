@@ -7,26 +7,32 @@ from tools.search_jobs import search
 app = Flask(__name__)
 
 def parse_chat_intent(user_prompt):
-    """Cleanly parse natural language chat prompts to extract job roles and locations."""
+    """Accurately extract job role and multiple or single locations from natural language."""
     prompt_lower = user_prompt.lower()
     
     # Default fallback
-    query = "salesforce testing"
-    location = "chennai"
+    query = "automation testing"
+    locations = []
     
-    # 1. Extract location
-    cities = ["chennai", "bangalore", "bengaluru", "hyderabad", "mumbai", "pune", "delhi", "ncr", "kolkata", "ahmedabad", "remote"]
-    for city in cities:
+    # 1. Detect ALL mentioned cities in the prompt
+    available_cities = ["chennai", "bangalore", "bengaluru", "hyderabad", "mumbai", "pune", "delhi", "ncr", "kolkata", "ahmedabad", "remote"]
+    for city in available_cities:
         if city in prompt_lower:
-            location = city.capitalize()
+            formatted_city = "Bangalore" if city == "bengaluru" else city.capitalize()
+            if formatted_city not in locations:
+                locations.append(formatted_city)
+            # Remove city name from prompt so it doesn't pollute the job role query
             prompt_lower = prompt_lower.replace(city, "").strip()
-            break
             
-    # 2. Extract core role by stripping out conversational filler words
+    # If no city was mentioned, default to Chennai
+    if not locations:
+        locations = ["Chennai"]
+        
+    # 2. Clean up conversational filler words to isolate the core job role
     filler_words = [
-        "get", "all", "the", "jobs", "job", "opening", "openings", "search", "find", 
-        "me", "please", "can", "you", "show", "posted", "just", "now", "recent", 
-        "for", "in", "at", "with", "related", "role", "roles"
+        "can", "you", "please", "provide", "show", "me", "find", "search", "get", 
+        "all", "the", "jobs", "job", "opening", "openings", "role", "roles", 
+        "in", "at", "for", "or", "and", ",", ".", "posted", "just", "now"
     ]
     
     words = prompt_lower.split()
@@ -34,19 +40,18 @@ def parse_chat_intent(user_prompt):
     
     if filtered_words:
         query = " ".join(filtered_words)
-    
-    # If the user prompt was too conversational and left query empty, fallback intelligently
+        
     if not query.strip() or len(query.strip()) < 2:
         if "salesforce" in user_prompt:
             query = "salesforce"
         elif "qa" in user_prompt or "testing" in user_prompt:
-            query = "qa automation testing"
+            query = "automation testing"
         elif "python" in user_prompt:
             query = "python developer"
         else:
             query = "software engineer"
             
-    return query, location
+    return query, locations
 
 @app.route("/")
 def index():
@@ -74,20 +79,27 @@ def sesans_o_chat():
             reply = f"My name is **Sesan's O**. I am your dedicated local AI career assistant, built to help you search jobs across any location, tailor your master resume without inventing skills, and track your applications!"
         elif "who am i" in user_prompt or "my name" in user_prompt:
             reply = f"You are **{name}**, an Associate in Quality Engineering and Assurance specializing in Salesforce, Agentforce, Playwright, Veeva CRM, and Tosca!"
-        elif any(kw in user_prompt for kw in ["job", "jobs", "opening", "openings", "search", "find", "roles", "developer", "engineer", "qa", "testing", "salesforce"]):
-            query, location = parse_chat_intent(user_prompt)
-            jobs = search(query, location, 7)
+        elif any(kw in user_prompt for kw in ["job", "jobs", "opening", "openings", "search", "find", "roles", "developer", "engineer", "qa", "testing", "salesforce", "provide"]):
+            query, locations = parse_chat_intent(user_prompt)
             
-            total_found = len(jobs)
-            reply_lines = [f"Found **{total_found}** matching jobs for **{query}** in **{location}** scored against your master resume:"]
-            if not jobs:
-                reply_lines.append(f"\n*No active listings found right now for '{query}' in {location}. Try expanding your search terms or checking another city!*")
+            all_jobs = []
+            for loc in locations:
+                city_jobs = search(query, loc, 7)
+                for j in city_jobs:
+                    j['search_city'] = loc
+                    all_jobs.append(j)
+                    
+            total_found = len(all_jobs)
+            loc_str = ", ".join(locations)
+            reply_lines = [f"Found **{total_found}** matching jobs for **{query}** across **{loc_str}** scored against your master resume:"]
+            if not total_found:
+                reply_lines.append(f"\n*No active listings found right now for '{query}' in {loc_str}. Try broadening your role keywords!*")
             else:
-                for i, j in enumerate(jobs, 1):
+                for i, j in enumerate(all_jobs[:10], 1):
                     reply_lines.append(
                         f"\n--- \n"
                         f"**#{i} {j['title']}** at **{j['company']}**\n"
-                        f"* **Location:** {j['location']} | **Posted:** {j['posted']}\n"
+                        f"* **Location:** {j['location']} (Searched: {j['search_city']}) | **Posted:** {j['posted']}\n"
                         f"* [🔗 Open Direct Application Link]({j['url']})"
                     )
             reply = "\n".join(reply_lines)
@@ -95,20 +107,27 @@ def sesans_o_chat():
             proc = subprocess.run(["python", "tools/tracker.py", "followups"], capture_output=True, text=True)
             reply = f"Here is your current application tracker status:\n{proc.stdout}"
         else:
-            # Fallback for direct role queries like "software developer in hyderabad"
-            query, location = parse_chat_intent(user_prompt)
-            jobs = search(query, location, 7)
-            total_found = len(jobs)
+            # Fallback for direct role queries across multiple locations
+            query, locations = parse_chat_intent(user_prompt)
+            all_jobs = []
+            for loc in locations:
+                city_jobs = search(query, loc, 7)
+                for j in city_jobs:
+                    j['search_city'] = loc
+                    all_jobs.append(j)
+                    
+            total_found = len(all_jobs)
+            loc_str = ", ".join(locations)
             
-            reply_lines = [f"Found **{total_found}** matching jobs for **{query}** in **{location}** scored against your master resume:"]
-            if not jobs:
-                reply_lines.append(f"\n*No active listings found right now for '{query}' in {location}.*")
+            reply_lines = [f"Found **{total_found}** matching jobs for **{query}** across **{loc_str}** scored against your master resume:"]
+            if not total_found:
+                reply_lines.append(f"\n*No active listings found right now for '{query}' in {loc_str}.*")
             else:
-                for i, j in enumerate(jobs, 1):
+                for i, j in enumerate(all_jobs[:10], 1):
                     reply_lines.append(
                         f"\n--- \n"
                         f"**#{i} {j['title']}** at **{j['company']}**\n"
-                        f"* **Location:** {j['location']} | **Posted:** {j['posted']}\n"
+                        f"* **Location:** {j['location']} (Searched: {j['search_city']}) | **Posted:** {j['posted']}\n"
                         f"* [🔗 Open Direct Application Link]({j['url']})"
                     )
             reply = "\n".join(reply_lines)
