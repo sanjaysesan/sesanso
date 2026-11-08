@@ -6,6 +6,43 @@ from tools.search_jobs import search
 
 app = Flask(__name__)
 
+def parse_chat_intent(user_prompt):
+    """Dynamically extract exact job query keywords and target location from user prompt."""
+    prompt_lower = user_prompt.lower()
+    
+    # Default fallback query and location
+    query = "salesforce testing automation"
+    location = "chennai"
+    
+    # Comprehensive list of cities to detect
+    cities = ["chennai", "bangalore", "bengaluru", "hyderabad", "mumbai", "pune", "delhi", "ncr", "kolkata", "ahmedabad", "remote"]
+    for city in cities:
+        if city in prompt_lower:
+            location = city.capitalize()
+            # Remove city name from prompt to isolate the role keywords
+            prompt_lower = prompt_lower.replace(city, "").strip()
+            break
+            
+    # Extract specific job role phrases if introduced by preposition/trigger words
+    for prefix in ["jobs for", "job for", "looking for", "search for", "find"]:
+        if prefix in prompt_lower:
+            parts = prompt_lower.split(prefix)
+            if len(parts) > 1 and parts[1].strip():
+                extracted = parts[1].replace("in", "").replace("at", "").strip()
+                if extracted:
+                    query = extracted
+            break
+    else:
+        # If no explicit prefix, check if the prompt itself is a custom role description (excluding basic chat words)
+        cleaned_prompt = prompt_lower
+        for stop_word in ["please", "show", "me", "can", "you", "jobs", "job", "openings", "role", "roles"]:
+            cleaned_prompt = cleaned_prompt.replace(stop_word, "").strip()
+        
+        if cleaned_prompt:
+            query = cleaned_prompt
+
+    return query, location
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -27,31 +64,49 @@ def sesans_o_chat():
         
         # Handle conversational queries intelligently
         if any(greet in user_prompt for greet in ["hi", "hello", "hey", "how are you"]):
-            reply = f"Hello {name}! I am **Sesan's O**, your local AI job-hunting agent. I'm doing great and ready to help you find and apply for top Salesforce & QA automation roles in Chennai. What would you like to do today?"
+            reply = f"Hello {name}! I am **Sesan's O**, your local AI job-hunting agent. I'm ready to help you find and apply for any role in any location. What would you like to search for today?"
         elif "your name" in user_prompt or "who are you" in user_prompt:
-            reply = f"My name is **Sesan's O**. I am your dedicated local AI career assistant, built to help you search jobs, tailor your master resume without inventing skills, and track your applications!"
+            reply = f"My name is **Sesan's O**. I am your dedicated local AI career assistant, built to help you search jobs across any location, tailor your master resume without inventing skills, and track your applications!"
         elif "who am i" in user_prompt or "my name" in user_prompt:
             reply = f"You are **{name}**, an Associate in Quality Engineering and Assurance specializing in Salesforce, Agentforce, Playwright, Veeva CRM, and Tosca!"
-        elif "salesforce" in user_prompt or "jobs" in user_prompt or "testing" in user_prompt:
-            jobs = search("salesforce testing automation", "chennai", 2)
-            if not jobs:
-                jobs = search("salesforce", "chennai", 7)
+        elif any(kw in user_prompt for kw in ["job", "jobs", "opening", "openings", "search", "find", "roles", "developer", "engineer", "qa", "testing", "salesforce"]):
+            query, location = parse_chat_intent(user_prompt)
+            jobs = search(query, location, 7)
             
             total_found = len(jobs)
-            reply_lines = [f"Found **{total_found}** matching jobs in Chennai scored against your master resume:"]
-            for i, j in enumerate(jobs, 1):
-                reply_lines.append(
-                    f"\n--- \n"
-                    f"**#{i} {j['title']}** at **{j['company']}**\n"
-                    f"* **Location:** {j['location']} | **Posted:** {j['posted']}\n"
-                    f"* [🔗 Open Direct Application Link]({j['url']})"
-                )
+            reply_lines = [f"Found **{total_found}** matching jobs for **{query}** in **{location}** scored against your master resume:"]
+            if not jobs:
+                reply_lines.append(f"\n*No active listings found right now for '{query}' in {location}. Try expanding your search terms or checking another city!*")
+            else:
+                for i, j in enumerate(jobs, 1):
+                    reply_lines.append(
+                        f"\n--- \n"
+                        f"**#{i} {j['title']}** at **{j['company']}**\n"
+                        f"* **Location:** {j['location']} | **Posted:** {j['posted']}\n"
+                        f"* [🔗 Open Direct Application Link]({j['url']})"
+                    )
             reply = "\n".join(reply_lines)
         elif "tracker" in user_prompt or "applied" in user_prompt:
             proc = subprocess.run(["python", "tools/tracker.py", "followups"], capture_output=True, text=True)
             reply = f"Here is your current application tracker status:\n{proc.stdout}"
         else:
-            reply = f"I understand you're asking about '{user_prompt}'. As Sesan's O, I am tuned specifically to your Salesforce & QA profile. You can ask me to search for live jobs in Chennai, check your tracker, or review your skill gaps!"
+            # Fallback for direct role queries like "software developer in hyderabad"
+            query, location = parse_chat_intent(user_prompt)
+            jobs = search(query, location, 7)
+            total_found = len(jobs)
+            
+            reply_lines = [f"Found **{total_found}** matching jobs for **{query}** in **{location}** scored against your master resume:"]
+            if not jobs:
+                reply_lines.append(f"\n*No active listings found right now for '{query}' in {location}.*")
+            else:
+                for i, j in enumerate(jobs, 1):
+                    reply_lines.append(
+                        f"\n--- \n"
+                        f"**#{i} {j['title']}** at **{j['company']}**\n"
+                        f"* **Location:** {j['location']} | **Posted:** {j['posted']}\n"
+                        f"* [🔗 Open Direct Application Link]({j['url']})"
+                    )
+            reply = "\n".join(reply_lines)
             
         return jsonify({
             "agent": "Sesan's O",
@@ -61,7 +116,6 @@ def sesans_o_chat():
     except Exception as e:
         return jsonify({"agent": "Sesan's O", "reply": f"Error processing request: {str(e)}"})
 
-@app.route("/api/jobs", methods=["GET"])
 @app.route("/api/jobs", methods=["GET"])
 def get_jobs():
     kw = request.args.get("keywords", "salesforce")
