@@ -65,6 +65,24 @@ button.send-btn:hover { transform: scale(1.05); }
 .job-card:hover { border-color: var(--accent-blue); }
 .btn-apply { background: var(--accent-cyan); color: #ffffff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; text-decoration: none; display: inline-block; text-align: center; }
 .btn-applied { background: #f1f5f9; color: var(--accent-green); border: 1px solid var(--border-color); }
+.chat-input-container, .chat-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #ffffff; /* Match your theme background */
+    padding: 10px 15px;
+    box-sizing: border-box;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    display: flex;
+    gap: 10px;
+}
+
+/* Add bottom padding to your chat message history box so messages aren't hidden behind the fixed input bar */
+.chat-messages, .chat-history {
+    padding-bottom: 80px; /* Adjust this value based on your input bar height */
+}
 </style>
 </head>
 <body onload="updateDashboardMetrics()">
