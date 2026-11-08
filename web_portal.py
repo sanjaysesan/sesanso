@@ -7,40 +7,45 @@ from tools.search_jobs import search
 app = Flask(__name__)
 
 def parse_chat_intent(user_prompt):
-    """Dynamically extract exact job query keywords and target location from user prompt."""
+    """Cleanly parse natural language chat prompts to extract job roles and locations."""
     prompt_lower = user_prompt.lower()
     
-    # Default fallback query and location
-    query = "salesforce testing automation"
+    # Default fallback
+    query = "salesforce testing"
     location = "chennai"
     
-    # Comprehensive list of cities to detect
+    # 1. Extract location
     cities = ["chennai", "bangalore", "bengaluru", "hyderabad", "mumbai", "pune", "delhi", "ncr", "kolkata", "ahmedabad", "remote"]
     for city in cities:
         if city in prompt_lower:
             location = city.capitalize()
-            # Remove city name from prompt to isolate the role keywords
             prompt_lower = prompt_lower.replace(city, "").strip()
             break
             
-    # Extract specific job role phrases if introduced by preposition/trigger words
-    for prefix in ["jobs for", "job for", "looking for", "search for", "find"]:
-        if prefix in prompt_lower:
-            parts = prompt_lower.split(prefix)
-            if len(parts) > 1 and parts[1].strip():
-                extracted = parts[1].replace("in", "").replace("at", "").strip()
-                if extracted:
-                    query = extracted
-            break
-    else:
-        # If no explicit prefix, check if the prompt itself is a custom role description (excluding basic chat words)
-        cleaned_prompt = prompt_lower
-        for stop_word in ["please", "show", "me", "can", "you", "jobs", "job", "openings", "role", "roles"]:
-            cleaned_prompt = cleaned_prompt.replace(stop_word, "").strip()
-        
-        if cleaned_prompt:
-            query = cleaned_prompt
-
+    # 2. Extract core role by stripping out conversational filler words
+    filler_words = [
+        "get", "all", "the", "jobs", "job", "opening", "openings", "search", "find", 
+        "me", "please", "can", "you", "show", "posted", "just", "now", "recent", 
+        "for", "in", "at", "with", "related", "role", "roles"
+    ]
+    
+    words = prompt_lower.split()
+    filtered_words = [w for w in words if w not in filler_words]
+    
+    if filtered_words:
+        query = " ".join(filtered_words)
+    
+    # If the user prompt was too conversational and left query empty, fallback intelligently
+    if not query.strip() or len(query.strip()) < 2:
+        if "salesforce" in user_prompt:
+            query = "salesforce"
+        elif "qa" in user_prompt or "testing" in user_prompt:
+            query = "qa automation testing"
+        elif "python" in user_prompt:
+            query = "python developer"
+        else:
+            query = "software engineer"
+            
     return query, location
 
 @app.route("/")
