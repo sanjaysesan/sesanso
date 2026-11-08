@@ -1,0 +1,62 @@
+{
+  "name": "Chandrasesan S",
+  "role": "Associate - Quality Engineering and Assurance",
+  "company": "Cognizant Technology Solutions",
+  "location": "Chennai, Tamil Nadu, India",
+  "email": "sanjaysesan@gmail.com",
+  "phone": "9080280034",
+  "linkedin": "https://www.linkedin.com/in/chandrasesan-s-722787232",
+  "target_roles": [
+    "Salesforce Tester",
+    "QA CRM Tester",
+    "Automation Engineer",
+    "Quality Assurance Associate"
+  ],
+  "preferred_locations": [
+    "Chennai",
+    "Remote"
+  ],
+  "skills": {
+    "salesforce_testing": [
+      "Service Cloud",
+      "Net Zero Cloud",
+      "Salesforce Workbench",
+      "Salesforce Inspector"
+    ],
+    "life_sciences": [
+      "Veeva Vault",
+      "GxP Validation",
+      "Data Integrity"
+    ],
+    "testing_types": [
+      "Functional",
+      "Regression",
+      "Integration",
+      "System",
+      "UAT",
+      "Sanity"
+    ],
+    "automation_and_tools": [
+      "Selenium WebDriver (Java, TestNG, Robot Framework)",
+      "Copado Robotic Testing",
+      "HP ALM",
+      "GitHub Copilot",
+      "Claude Code"
+    ],
+    "data_and_backup": [
+      "Salesforce Own Backup (Backup, Restore, Find, Compare, Anonymize)",
+      "Snowflake Data Lake Validation"
+    ]
+  },
+  "certifications": [
+    "Salesforce Platform Foundations Certification",
+    "Gemini Agent Development Certification",
+    "Salesforce Certified Agentforce Specialist",
+    "Copado Robotic Testing [201- Intermediate]",
+    "Copado's Fundamentals I Metadata Pipeline certification",
+    "Tricentis Tosca Fundamentals - Automating SAP testing",
+    "Tricentis Tosca Product Consultant Certification Exam",
+    "Claude Certified Architect - Foundation Certification",
+    "Tricentis Tosca in the Cloud Product Consultant Certification"
+  ]
+}
